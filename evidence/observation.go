@@ -18,12 +18,24 @@ type SourceRef struct {
 	Line int `json:"line,omitempty"`
 }
 
-// Issue is a safe, code-based parsing or collection problem. Detail never
+// Issue is a safe, code-based parsing or collection problem. No field ever
 // carries raw device output or secrets.
 type Issue struct {
-	Code   string `json:"code"`
-	Line   int    `json:"line,omitempty"`
-	Detail string `json:"detail,omitempty"`
+	Code string `json:"code"`
+	// Line is the 1-based response line; 0 means the whole response.
+	Line int `json:"line,omitempty"`
+	// Count is how many times the issue occurred, when aggregated.
+	Count int `json:"count,omitempty"`
+	// Expected and Observed are accounting totals, for example a declared
+	// row count against the rows actually parsed. Nil means not applicable.
+	Expected *int `json:"expected,omitempty"`
+	Observed *int `json:"observed,omitempty"`
+	// Fields names the fields involved, such as missing table columns.
+	Fields []string `json:"fields,omitempty"`
+	// Scope identifies where the issue applies, such as {"vrf": "default"}
+	// or {"ap_name": "ap-1"}. Values are device identifiers, never output.
+	Scope  map[string]string `json:"scope,omitempty"`
+	Detail string            `json:"detail,omitempty"`
 }
 
 // Observation is the typed result of observing one dimension.

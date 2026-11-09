@@ -94,3 +94,11 @@ func FuzzCanonicalIsStable(f *testing.F) {
 		}
 	})
 }
+
+func TestIssueEncodesOnlyPresentFields(t *testing.T) {
+	zero := 0
+	body, _ := json.Marshal(evidence.Issue{Code: "row_count_mismatch", Line: 3, Expected: &zero, Observed: new(2), Scope: map[string]string{"vrf": "default"}})
+	if string(body) != `{"code":"row_count_mismatch","line":3,"expected":0,"observed":2,"scope":{"vrf":"default"}}` {
+		t.Fatalf("%s", body)
+	}
+}
