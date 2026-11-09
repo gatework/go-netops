@@ -31,7 +31,8 @@ jobs:
       - run: go mod verify
       - run: go mod tidy -diff
       - run: test -z "$(gofmt -l .)"
-      - run: python3 scripts/check-architecture.py
+      - run: go run ./cmd/archcheck
+      - run: GOOS=linux GOARCH=amd64 go build ./...
       - run: go vet ./...
       - run: go test -race -shuffle=on -count=1 -timeout=180s ./...
       - run: go test -run='^$' -fuzz=FuzzCanonicalIsStable -fuzztime=20s ./evidence

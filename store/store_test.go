@@ -11,6 +11,7 @@ import (
 
 	"github.com/gatework/go-net-connector/storage"
 	"github.com/gatework/go-netops/apply"
+	"github.com/gatework/go-netops/batch"
 	"github.com/gatework/go-netops/store"
 )
 
@@ -106,5 +107,31 @@ func TestJournalRestoresCheckpointWhenFinalVisibleButFailed(t *testing.T) {
 func TestBasename(t *testing.T) {
 	if got := store.Basename("leaf 1/a", "fe80::1"); got != "leaf_1_a-fe80__1" {
 		t.Fatal(got)
+	}
+}
+
+func TestBatchJournalWritesDeviceAndSummary(t *testing.T) {
+	s := newStore(t, nil)
+	j := store.NewBatchJournal[map[string]int](s)
+	result := batch.DeviceResult{Device: batch.Device{Host: "10.0.0.1", Name: "leaf1"}, Status: "complete", ReportSaved: true}
+	if err := j.WriteDevice(t.Context(), result, &map[string]int{"vnis": 3}); err != nil {
+		t.Fatal(err)
+	}
+	if err := j.Finish(t.Context(), batch.Summary{SchemaVersion: batch.SchemaVersion, Requested: 1}); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(filepath.Join(s.Directory(), "devices", "leaf1-10.0.0.1.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Result   batch.DeviceResult `json:"result"`
+		Snapshot map[string]int     `json:"snapshot"`
+	}
+	if err := json.Unmarshal(body, &doc); err != nil || doc.Snapshot["vnis"] != 3 || doc.Result.ReportSaved {
+		t.Fatalf("%s %v", body, err)
+	}
+	if _, err := os.Stat(filepath.Join(s.Directory(), "summary.json")); err != nil || j.RecoveryFailed() {
+		t.Fatal(err)
 	}
 }

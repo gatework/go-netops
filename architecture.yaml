@@ -1,0 +1,70 @@
+# go-netops import boundaries, enforced by `go run ./cmd/archcheck`.
+declared:
+  - .
+  - ./evidence
+  - ./textscan
+  - ./assess
+  - ./drift
+  - ./change
+  - ./apply
+  - ./batch
+  - ./session
+  - ./store
+  - ./inventory
+  - ./bootstrap
+  - ./archcheck
+  - ./cmd/archcheck
+
+rules:
+  - name: go-netops never imports a consumer module
+    packages: [./...]
+    deny: [github.com/gatework/go-vxlan/..., github.com/gatework/go-wireless/...]
+    transitive: true
+
+  - name: domain packages stay free of transport and I/O
+    packages: [., ./evidence, ./textscan, ./assess, ./drift, ./change, ./apply, ./batch]
+    deny: [os, os/exec, io/fs, net, net/http, database/sql, path/filepath, syscall,
+           github.com/gatework/go-net-connector/..., github.com/gatework/go-expect/...]
+    # batch uses only the connector's pure bounded worker pool.
+    allow: [github.com/gatework/go-net-connector/parallel]
+
+  - name: root documents the module only
+    packages: [.]
+    only_local: []
+    deny: [./...]
+
+  - name: evidence is the base layer
+    packages: [./evidence]
+    deny: [./...]
+
+  - name: textscan and assess depend only on evidence
+    packages: [./textscan, ./assess]
+    only_local: [./evidence]
+
+  - name: drift builds on assess
+    packages: [./drift]
+    only_local: [./assess, ./evidence]
+
+  - name: change builds on drift and evidence
+    packages: [./change]
+    only_local: [./drift, ./assess, ./evidence]
+
+  - name: apply and session are self-contained
+    packages: [./apply, ./session, ./bootstrap, ./archcheck]
+    deny: [./...]
+
+  - name: batch depends only on evidence
+    packages: [./batch]
+    only_local: [./evidence]
+
+  - name: store persists apply and batch state
+    packages: [./store]
+    only_local: [./apply, ./batch, ./evidence]
+
+  - name: inventory is connector configuration only
+    packages: [./inventory]
+    deny: [./...]
+
+  - name: the archcheck command uses only its package
+    packages: [./cmd/archcheck]
+    only_local: [./archcheck]
