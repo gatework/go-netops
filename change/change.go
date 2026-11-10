@@ -23,6 +23,8 @@ var (
 	ErrNotEligible = errors.New("change: not eligible")
 	// ErrNotSatisfied reports that readback does not reflect the change.
 	ErrNotSatisfied = errors.New("change: readback does not satisfy change")
+	// ErrNotPreserved reports readback changes beyond the planned change.
+	ErrNotPreserved = errors.New("change: readback changed more than planned")
 )
 
 // Kind identifies a change type, such as "svi_acl".
@@ -50,6 +52,13 @@ type Change[M any] interface {
 	Eligible(M) error
 	// Satisfied reports whether the model reflects the applied change.
 	Satisfied(M) error
+}
+
+// Preserving is implemented by changes that can also prove nothing besides
+// their target changed. Plan.Verify uses it when present, so a readback
+// that satisfies the change but altered unrelated configuration fails.
+type Preserving[M any] interface {
+	Preserved(before, after M) error
 }
 
 // Corrector proposes a change that would remove a deviation. ok is false when

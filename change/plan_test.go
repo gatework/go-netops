@@ -122,3 +122,32 @@ func TestEnvelopeRoundTripRejectsEditedCommands(t *testing.T) {
 		t.Fatal("unknown field accepted")
 	}
 }
+
+type preservingVLAN struct{ addVLAN }
+
+func (preservingVLAN) Preserved(before, after config) error {
+	for v := range after.vlans {
+		if !before.vlans[v] && v != 10 {
+			return errors.New("unrelated VLAN appeared")
+		}
+	}
+	return nil
+}
+
+func TestVerifyChecksPreservation(t *testing.T) {
+	p, _ := change.NewPlan[config](target, digest, preservingVLAN{addVLAN{VLAN: 10}})
+	before := config{vlans: map[int]bool{}}
+	if err := p.Verify(before, config{vlans: map[int]bool{10: true}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Verify(before, config{vlans: map[int]bool{10: true, 99: true}}); !errors.Is(err, change.ErrNotPreserved) {
+		t.Fatalf("unrelated change accepted: %v", err)
+	}
+	if err := p.Verify(config{vlans: map[int]bool{10: true}}, config{vlans: map[int]bool{10: true}}); !errors.Is(err, change.ErrNotEligible) {
+		t.Fatalf("ineligible before accepted: %v", err)
+	}
+	plain, _ := change.NewPlan[config](target, digest, addVLAN{VLAN: 10})
+	if err := plain.Verify(before, config{vlans: map[int]bool{10: true, 99: true}}); err != nil {
+		t.Fatalf("non-preserving change should only check satisfaction: %v", err)
+	}
+}

@@ -109,6 +109,25 @@ func (p *Plan[M]) CheckAfter(model M) error {
 	return nil
 }
 
+// Verify checks a readback against the configuration read before sending:
+// the change is satisfied and, for Preserving changes, nothing else moved.
+// The before configuration must still be eligible, so a stale or swapped
+// "before" cannot vouch for the readback.
+func (p *Plan[M]) Verify(before, after M) error {
+	if err := p.change.Eligible(before); err != nil {
+		return fmt.Errorf("%w: before: %w", ErrNotEligible, err)
+	}
+	if err := p.CheckAfter(after); err != nil {
+		return err
+	}
+	if pr, ok := p.change.(Preserving[M]); ok {
+		if err := pr.Preserved(before, after); err != nil {
+			return fmt.Errorf("%w: %w", ErrNotPreserved, err)
+		}
+	}
+	return nil
+}
+
 // Envelope is the persisted, operator-reviewable form of a plan.
 type Envelope struct {
 	SchemaVersion       int             `json:"schema_version"`
