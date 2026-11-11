@@ -50,16 +50,16 @@ type journal struct {
 	final    *apply.State
 }
 
-type committedErr struct{}
+type committedError struct{}
 
-func (committedErr) Error() string   { return "published but not durable" }
-func (committedErr) Committed() bool { return true }
+func (committedError) Error() string   { return "published but not durable" }
+func (committedError) Committed() bool { return true }
 
 func (j *journal) WriteExecution(_ context.Context, s apply.State) error {
 	j.states = append(j.states, s)
 	if j.failOn == len(j.states) {
 		if j.visible {
-			return committedErr{}
+			return committedError{}
 		}
 		return errors.New("disk full")
 	}
@@ -191,7 +191,7 @@ func TestRunRejectsOpenerThatNeverRuns(t *testing.T) {
 	s, j := &session{}, &journal{}
 	req := request(twoCommands, s, j, nil)
 	req.Open = func(context.Context, func(context.Context, apply.Session[string]) error) (error, error) {
-		return nil, nil
+		return nil, nil //nolint:nilnil // both results are errors: no operation error and no cleanup error
 	}
 	if res, err := apply.Run(t.Context(), req); !errors.Is(err, apply.ErrProtocol) || res.State.Status != apply.StatusFailed {
 		t.Fatalf("%+v %v", res.State, err)

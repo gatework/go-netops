@@ -10,8 +10,6 @@ package change
 import (
 	"errors"
 	"regexp"
-
-	"github.com/gatework/go-netops/drift"
 )
 
 var (
@@ -49,9 +47,9 @@ type Change[M any] interface {
 	// Render returns the exact commands; it must be deterministic.
 	Render() (Script, error)
 	// Eligible reports whether the change applies to the current model.
-	Eligible(M) error
+	Eligible(model M) error
 	// Satisfied reports whether the model reflects the applied change.
-	Satisfied(M) error
+	Satisfied(model M) error
 }
 
 // Preserving is implemented by changes that can also prove nothing besides
@@ -59,10 +57,4 @@ type Change[M any] interface {
 // that satisfies the change but altered unrelated configuration fails.
 type Preserving[M any] interface {
 	Preserved(before, after M) error
-}
-
-// Corrector proposes a change that would remove a deviation. ok is false when
-// the deviation needs operator judgment and has no automatic correction.
-type Corrector[M any] interface {
-	Correct(model M, deviation drift.Deviation) (c Change[M], ok bool)
 }

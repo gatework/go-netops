@@ -34,7 +34,7 @@ func PrepareFileLimit(ctx context.Context, active int) error {
 	return prepare(ctx, active, getLimit, setLimit)
 }
 
-func prepare(ctx context.Context, active int, get func() (cur, max uint64, err error), set func(cur, max uint64) error) error {
+func prepare(ctx context.Context, active int, get func() (cur, hard uint64, err error), set func(cur, hard uint64) error) error {
 	if active < 0 || active > MaxActiveDevices {
 		return ErrInvalid
 	}

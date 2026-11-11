@@ -15,6 +15,7 @@ var ErrInvalid = errors.New("evidence: invalid")
 // Status is the completeness of one observed dimension.
 type Status string
 
+// Evidence statuses.
 const (
 	StatusComplete     Status = "complete"
 	StatusPartial      Status = "partial"

@@ -23,13 +23,15 @@ var ErrProtocol = errors.New("apply: protocol violation")
 // Status is the execution state recorded in the journal.
 type Status string
 
+// Execution statuses. A run moves from confirmed to executing and ends
+// verified, failed or uncertain.
 const (
 	StatusConfirmed Status = "confirmed"
 	StatusExecuting Status = "executing"
 	StatusVerified  Status = "configuration_verified"
 	StatusFailed    Status = "failed"
-	// StatusUncertain: a command may have reached the device but the outcome
-	// could not be confirmed. Never retry automatically.
+	// StatusUncertain means a command may have reached the device but the
+	// outcome could not be confirmed. Never retry automatically.
 	StatusUncertain Status = "uncertain"
 )
 
@@ -44,6 +46,7 @@ const (
 // Stage is where a failure happened.
 type Stage string
 
+// Failure stages, in execution order.
 const (
 	StageConnect  Stage = "connect"
 	StageReadback Stage = "response"
@@ -110,8 +113,8 @@ type Plan[C any] interface {
 
 // Session reads complete, checked configuration and writes one command.
 type Session[C any] interface {
-	ReadConfiguration(context.Context) (C, error)
-	Write(context.Context, string) error
+	ReadConfiguration(ctx context.Context) (C, error)
+	Write(ctx context.Context, command string) error
 }
 
 // Opener lends exactly one session for the whole operation, then returns the
@@ -123,8 +126,8 @@ type Opener[C any] func(ctx context.Context, run func(context.Context, Session[C
 // Committed() bool returning true, so Run treats the intent as possibly sent.
 // FinalizeExecution must leave a recoverable checkpoint if it fails.
 type Journal interface {
-	WriteExecution(context.Context, State) error
-	FinalizeExecution(context.Context, State) error
+	WriteExecution(ctx context.Context, state State) error
+	FinalizeExecution(ctx context.Context, state State) error
 }
 
 // Classifier maps an error to safe diagnostic codes, for example
@@ -206,8 +209,9 @@ func cmpErr(err, fallback error, verified bool) error {
 	return err
 }
 
+// run is one execution of Run; it lives only for that call.
 type run[C any] struct {
-	ctx      context.Context
+	ctx      context.Context //nolint:containedctx // scoped to a single Run call
 	req      Request[C]
 	state    State
 	stage    Stage

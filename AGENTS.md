@@ -1,11 +1,13 @@
 # go-netops 开发说明
 
+遵循 [gatework Go 工程规范](../go-standards/STANDARD.md)（go-standards/STANDARD.md）；本文件只补充 go-netops 特有的边界与语义。
+
 本模块是 go-vxlan、go-wireless 共用的运维领域内核，用法见 [README.md](README.md)。
 
 ## 边界
 
 - 厂商无关、领域无关：不得导入 go-vxlan、go-wireless 或任何厂商语法；领域模型和规则目录属于消费模块。
-- 领域包（evidence、textscan、assess、drift、change、apply、batch）保持纯逻辑，不依赖文件、网络或传输；batch 仅允许 connector 的纯并发池 `parallel`。`store`、`session`、`inventory`、`bootstrap` 是边缘包。分层由 `architecture.yaml` 约束，新增包须先在 `declared` 登记。
+- 领域包（evidence、textscan、assess、drift、change、apply、batch）保持纯逻辑，不依赖文件、网络或传输；batch 仅允许 connector 的纯并发池 `parallel`。`store`、`session`、`inventory`、`bootstrap` 是边缘包。分层由 `architecture.yaml` 约束（go-standards 的 archcheck 在 `make check` 中执行），新增包须先在 `declared` 登记。
 - 规则文案、默认严重级别、依赖维度放在 `RuleMeta`，不在规则体内拼接。
 - 不引入 `init` 注册或包级可变 registry；`Catalog` 显式构造。
 
@@ -21,9 +23,8 @@
 ## 构建与检查
 
 ```sh
-export GOWORK=off GOFLAGS=-mod=readonly
-gofmt -l . ; go vet ./... ; go test -race -shuffle=on ./...
-go run ./cmd/archcheck
+make check   # 提交前必须通过
+make fuzz    # 修改 evidence 规范化时运行
 ```
 
 依赖使用正式模块版本（connector v0.6.0、expect v0.5.0），不使用 workspace 或持久化 replace。发布 tag 属于对外操作，需明确授权。

@@ -15,6 +15,7 @@ const SchemaVersion = 3
 // RuleState is what happened to one rule during a run.
 type RuleState string
 
+// Rule states.
 const (
 	RuleRan      RuleState = "ran"
 	RuleSkipped  RuleState = "skipped"
@@ -61,7 +62,7 @@ func (a Assessment) Incomplete() bool {
 // findings can tell the operator how to re-check them. The selected vendor
 // profile normally satisfies it.
 type VerifyCommands interface {
-	Command(evidence.Dimension) (string, error)
+	Command(dimension evidence.Dimension) (string, error)
 }
 
 // Engine runs a catalog under a policy.

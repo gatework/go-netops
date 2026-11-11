@@ -40,7 +40,7 @@ func TestScanner(t *testing.T) {
 	if len(up) != 2 || len(s.Issues()) != 1 || s.Issues()[0].Line != 2 || s.Status(true) != evidence.StatusPartial {
 		t.Fatalf("%v %v", up, s.Issues())
 	}
-	if textscan.Pattern(`^x$`) != textscan.Pattern(`^x$`) {
+	if first, second := textscan.Pattern(`^x$`), textscan.Pattern(`^x$`); first != second {
 		t.Fatal("pattern not cached")
 	}
 	var clean textscan.Scanner

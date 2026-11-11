@@ -18,6 +18,7 @@ var ErrInvalid = errors.New("assess: invalid")
 // "use the rule's default" and never appears in an assessment.
 type Severity int
 
+// Severities, lowest first.
 const (
 	SeverityUnset Severity = iota
 	SeverityInfo
@@ -54,6 +55,7 @@ func ParseSeverity(name string) (Severity, error) {
 	return SeverityUnset, fmt.Errorf("%w: severity %q", ErrInvalid, name)
 }
 
+// MarshalText encodes a valid severity by name.
 func (s Severity) MarshalText() ([]byte, error) {
 	if !s.Valid() {
 		return nil, fmt.Errorf("%w: severity %d", ErrInvalid, int(s))
@@ -61,6 +63,7 @@ func (s Severity) MarshalText() ([]byte, error) {
 	return []byte(s.String()), nil
 }
 
+// UnmarshalText decodes a severity name and rejects unknown names.
 func (s *Severity) UnmarshalText(text []byte) error {
 	v, err := ParseSeverity(string(text))
 	if err != nil {
@@ -74,19 +77,19 @@ func (s *Severity) UnmarshalText(text []byte) error {
 type Category string
 
 const (
-	// CategoryEvidence: facts are missing, partial or contradictory.
+	// CategoryEvidence means facts are missing, partial or contradictory.
 	CategoryEvidence Category = "evidence"
-	// CategoryConfiguration: a configuration is internally inconsistent.
+	// CategoryConfiguration means a configuration is internally inconsistent.
 	CategoryConfiguration Category = "configuration"
-	// CategoryConsistency: peers that should agree do not.
+	// CategoryConsistency means peers that should agree do not.
 	CategoryConsistency Category = "consistency"
-	// CategoryDrift: state deviates from a baseline or a previous snapshot.
+	// CategoryDrift means state deviates from a baseline or a previous snapshot.
 	CategoryDrift Category = "drift"
-	// CategoryRuntime: operational state such as sessions, peers or links.
+	// CategoryRuntime covers operational state such as sessions, peers or links.
 	CategoryRuntime Category = "runtime"
-	// CategorySecurity: weak or missing protection.
+	// CategorySecurity means weak or missing protection.
 	CategorySecurity Category = "security"
-	// CategoryCapacity: load, utilization or resource limits.
+	// CategoryCapacity covers load, utilization or resource limits.
 	CategoryCapacity Category = "capacity"
 )
 

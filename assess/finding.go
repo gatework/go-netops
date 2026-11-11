@@ -2,6 +2,7 @@ package assess
 
 import (
 	"cmp"
+	"slices"
 	"strings"
 
 	"github.com/gatework/go-netops/evidence"
@@ -32,8 +33,8 @@ func (s Subject) String() string {
 		parts = append(parts, cur.Kind+":"+cur.Key)
 	}
 	var b strings.Builder
-	for i := len(parts) - 1; i >= 0; i-- {
-		b.WriteString(parts[i])
+	for i, part := range slices.Backward(parts) {
+		b.WriteString(part)
 		if i > 0 {
 			b.WriteByte('/')
 		}

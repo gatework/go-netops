@@ -21,21 +21,22 @@ import (
 type Kind string
 
 const (
-	// KindMissing: expected but absent.
+	// KindMissing means expected but absent.
 	KindMissing Kind = "missing"
-	// KindUnexpected: present but not expected.
+	// KindUnexpected means present but not expected.
 	KindUnexpected Kind = "unexpected"
-	// KindMismatch: present with a different value than expected.
+	// KindMismatch means present with a different value than expected.
 	KindMismatch Kind = "mismatch"
-	// KindAmbiguous: peers disagree with no majority to identify the outlier.
+	// KindAmbiguous means peers disagree with no majority to identify the outlier.
 	KindAmbiguous Kind = "ambiguous"
-	// KindChanged: differs from the previous snapshot.
+	// KindChanged means it differs from the previous snapshot.
 	KindChanged Kind = "changed"
 )
 
 // Source names where the expectation came from.
 type Source string
 
+// Expectation sources.
 const (
 	SourceBaseline  Source = "baseline"
 	SourceConsensus Source = "consensus"
