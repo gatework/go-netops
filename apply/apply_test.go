@@ -191,7 +191,7 @@ func TestRunRejectsOpenerThatNeverRuns(t *testing.T) {
 	s, j := &session{}, &journal{}
 	req := request(twoCommands, s, j, nil)
 	req.Open = func(context.Context, func(context.Context, apply.Session[string]) error) (error, error) {
-		return nil, nil //nolint:nilnil // both results are errors: no operation error and no cleanup error
+		return nil, nil
 	}
 	if res, err := apply.Run(t.Context(), req); !errors.Is(err, apply.ErrProtocol) || res.State.Status != apply.StatusFailed {
 		t.Fatalf("%+v %v", res.State, err)
