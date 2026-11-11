@@ -8,6 +8,7 @@ package session
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"github.com/gatework/go-expect"
 	"github.com/gatework/go-net-connector/connector"
@@ -37,15 +38,14 @@ func Code(err error) string {
 // Codes returns one code per independent cause in err's tree, in order,
 // without duplicates. Classified errors (connector errors and Coded) stop the
 // traversal; joins and plain wrappers are followed.
+//
+//nolint:errorlint // Codes walks the error tree itself; each node is classified on its own.
 func Codes(err error) []string {
 	var codes []string
 	add := func(c string) {
-		for _, have := range codes {
-			if have == c {
-				return
-			}
+		if !slices.Contains(codes, c) {
+			codes = append(codes, c)
 		}
-		codes = append(codes, c)
 	}
 	var visit func(error)
 	visit = func(err error) {
@@ -74,6 +74,10 @@ func Codes(err error) []string {
 	return codes
 }
 
+// direct classifies err itself, without unwrapping: a joined or wrapped error
+// gets one code per cause from Codes rather than one code for the whole.
+//
+//nolint:errorlint // identity comparison is the point; see above.
 func direct(err error) string {
 	switch e := err.(type) {
 	case Coded:
@@ -85,16 +89,16 @@ func direct(err error) string {
 			return e.Code
 		}
 	}
-	switch {
-	case err == context.Canceled:
+	switch err {
+	case context.Canceled:
 		return CodeCancelled
-	case err == context.DeadlineExceeded, err == expect.ErrTimeout:
+	case context.DeadlineExceeded, expect.ErrTimeout:
 		return CodeDeadlineExceeded
-	case err == connector.ErrClosed, err == connector.ErrNotConnected:
+	case connector.ErrClosed, connector.ErrNotConnected:
 		return CodeSessionClosed
-	case err == connector.ErrBusy:
+	case connector.ErrBusy:
 		return CodeSessionBusy
-	case err == connector.ErrScope:
+	case connector.ErrScope:
 		return CodeSessionScopeEnded
 	}
 	return ""

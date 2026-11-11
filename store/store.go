@@ -36,6 +36,8 @@ type PublishError struct {
 func (e *PublishError) Error() string {
 	return fmt.Sprintf("store: %s at %s (committed=%t durable=%t)", e.Relative, e.Phase, e.Visible, e.Durable)
 }
+
+// GoString formats the same metadata as Error.
 func (e *PublishError) GoString() string { return e.Error() }
 
 // Committed reports whether the new content became visible despite the error.

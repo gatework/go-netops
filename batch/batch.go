@@ -12,6 +12,7 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"maps"
 	"slices"
 	"sync"
 	"time"
@@ -144,142 +145,173 @@ func Run[S any](ctx context.Context, o Options[S]) (Result, error) {
 	if o.Collect == nil || o.Journal == nil {
 		return Result{Failed: true, Interrupted: ctx.Err() != nil}, ErrInvalid
 	}
-	now := o.Now
-	if now == nil {
-		now = time.Now
+	if o.Now == nil {
+		o.Now = time.Now
 	}
 	batchCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	r := &batchRun[S]{ctx: ctx, o: o, cancel: cancel, results: []DeviceResult{}}
+	execErr := r.collect(batchCtx)
+	r.summarize(execErr)
+	return r.settle(execErr)
+}
 
-	var mu sync.Mutex
-	results := []DeviceResult{}
-	var firstReportErr error
-	tasks, execErr := parallel.Map(batchCtx, o.Workers, o.Devices, func(taskCtx context.Context, d Device) (struct{}, error) {
-		start := now()
-		if o.Events.Started != nil {
-			o.Events.Started(d)
-		}
-		snapshot, collection, err := o.Collect(taskCtx, d)
-		result := DeviceResult{Device: d, Status: evidence.StatusFailed, Dimensions: map[evidence.Dimension]DimensionSummary{}}
-		var saved *S
-		if err != nil {
-			result.Error = "collection_failed"
-		} else {
-			saved = &snapshot
-			result.Status = collection.Status
-			for name, s := range collection.Dimensions {
-				result.Dimensions[name] = s
-			}
-		}
-		result.DurationMS = now().Sub(start).Round(time.Millisecond).Milliseconds()
-		mu.Lock()
-		index := len(results)
-		results = append(results, result)
-		mu.Unlock()
-		// Persist every started result, even after a sibling failure.
-		err = o.Journal.WriteDevice(context.WithoutCancel(taskCtx), result, saved)
-		mu.Lock()
-		if err == nil {
-			results[index].ReportSaved = true
-			result.ReportSaved = true
-		} else if firstReportErr == nil {
-			firstReportErr = err
-		}
-		mu.Unlock()
-		if err != nil {
-			cancel()
-			return struct{}{}, err
-		}
-		if o.Events.Completed != nil {
-			o.Events.Completed(result)
-		}
-		return struct{}{}, nil
-	})
+// batchRun is one execution of Run.
+type batchRun[S any] struct {
+	ctx    context.Context //nolint:containedctx // the caller's context, scoped to one Run call
+	o      Options[S]
+	cancel context.CancelFunc
+
+	mu             sync.Mutex // guards results and firstReportErr while devices run
+	results        []DeviceResult
+	firstReportErr error
+
+	summary   Summary
+	out       Result
+	finishErr error
+}
+
+// collect runs every device and returns the first execution error.
+func (r *batchRun[S]) collect(batchCtx context.Context) error {
+	tasks, execErr := parallel.Map(batchCtx, r.o.Workers, r.o.Devices, r.device)
 	if execErr == nil {
 		for _, t := range tasks {
 			if t.Started && t.Err != nil {
-				execErr = t.Err
-				break
+				return t.Err
 			}
 		}
 	}
+	return execErr
+}
 
-	slices.SortFunc(results, func(a, b DeviceResult) int { return cmp.Compare(a.Device.Host, b.Device.Host) })
-	summary := Summary{SchemaVersion: SchemaVersion, Requested: len(o.Devices), Devices: results, Counts: map[evidence.Status]int{}, Interrupted: ctx.Err() != nil}
-	for _, r := range results {
-		summary.Counts[r.Status]++
+// device collects one device and persists its result. Every started result
+// is persisted, even after a sibling failure; a persistence failure cancels
+// the batch.
+func (r *batchRun[S]) device(taskCtx context.Context, d Device) (struct{}, error) {
+	start := r.o.Now()
+	if r.o.Events.Started != nil {
+		r.o.Events.Started(d)
 	}
-	outputErr := func() error {
-		if o.Events.OutputError == nil {
-			return nil
-		}
-		return o.Events.OutputError()
+	snapshot, collection, err := r.o.Collect(taskCtx, d)
+	result := DeviceResult{Device: d, Status: evidence.StatusFailed, Dimensions: map[evidence.Dimension]DimensionSummary{}}
+	var saved *S
+	if err != nil {
+		result.Error = "collection_failed"
+	} else {
+		saved = &snapshot
+		result.Status = collection.Status
+		maps.Copy(result.Dimensions, collection.Dimensions)
 	}
-	if outputErr() != nil {
-		summary.OutputError = "output_failed"
+	result.DurationMS = r.o.Now().Sub(start).Round(time.Millisecond).Milliseconds()
+	r.mu.Lock()
+	index := len(r.results)
+	r.results = append(r.results, result)
+	r.mu.Unlock()
+	err = r.o.Journal.WriteDevice(context.WithoutCancel(taskCtx), result, saved)
+	r.mu.Lock()
+	if err == nil {
+		r.results[index].ReportSaved = true
+		result.ReportSaved = true
+	} else if r.firstReportErr == nil {
+		r.firstReportErr = err
 	}
-	if firstReportErr != nil {
-		summary.ReportError = publicationFailure(firstReportErr)
-	} else if execErr != nil && !summary.Interrupted {
-		summary.ExecutionError = "execution_failed"
+	r.mu.Unlock()
+	if err != nil {
+		r.cancel()
+		return struct{}{}, err
 	}
+	if r.o.Events.Completed != nil {
+		r.o.Events.Completed(result)
+	}
+	return struct{}{}, nil
+}
 
-	out := Result{}
-	var finishErr error
-	publish := func() {
-		if finishErr != nil {
-			summary.ReportError = publicationFailure(finishErr)
-		}
-		finishErr = o.Journal.Finish(context.WithoutCancel(ctx), summary)
-		if finishErr != nil {
-			out.Summary = nil
-		} else {
-			s := summary
-			out.Summary = &s
-		}
-		out.FinalizationFailed = out.FinalizationFailed || finishErr != nil
-		out.RecoveryFailed = out.RecoveryFailed || o.Journal.RecoveryFailed()
+// summarize builds the summary from the finished device results.
+func (r *batchRun[S]) summarize(execErr error) {
+	slices.SortFunc(r.results, func(a, b DeviceResult) int { return cmp.Compare(a.Device.Host, b.Device.Host) })
+	r.summary = Summary{SchemaVersion: SchemaVersion, Requested: len(r.o.Devices), Devices: r.results, Counts: map[evidence.Status]int{}, Interrupted: r.ctx.Err() != nil}
+	for _, d := range r.results {
+		r.summary.Counts[d.Status]++
 	}
-	finalize := func() {
-		publish()
-		// Cancellation is one-way: if it arrived during Finish, publish once more.
-		if ctx.Err() != nil && !summary.Interrupted {
-			summary.Interrupted = true
-			publish()
-		}
-		out.Interrupted = summary.Interrupted
+	if r.outputErr() != nil {
+		r.summary.OutputError = "output_failed"
 	}
-	finalize()
-	if !out.FinalizationFailed && o.Events.Finalized != nil {
-		o.Events.Finalized(summary)
+	if r.firstReportErr != nil {
+		r.summary.ReportError = publicationFailure(r.firstReportErr)
+	} else if execErr != nil && !r.summary.Interrupted {
+		r.summary.ExecutionError = "execution_failed"
+	}
+}
+
+func (r *batchRun[S]) outputErr() error {
+	if r.o.Events.OutputError == nil {
+		return nil
+	}
+	return r.o.Events.OutputError()
+}
+
+// publish hands the summary to the journal once, recording a previous
+// publication failure in it first.
+func (r *batchRun[S]) publish() {
+	if r.finishErr != nil {
+		r.summary.ReportError = publicationFailure(r.finishErr)
+	}
+	r.finishErr = r.o.Journal.Finish(context.WithoutCancel(r.ctx), r.summary)
+	if r.finishErr != nil {
+		r.out.Summary = nil
+	} else {
+		s := r.summary
+		r.out.Summary = &s
+	}
+	r.out.FinalizationFailed = r.out.FinalizationFailed || r.finishErr != nil
+	r.out.RecoveryFailed = r.out.RecoveryFailed || r.o.Journal.RecoveryFailed()
+}
+
+// finalize publishes the summary; cancellation is one-way, so if it arrived
+// during Finish the summary is published once more as interrupted.
+func (r *batchRun[S]) finalize() {
+	r.publish()
+	if r.ctx.Err() != nil && !r.summary.Interrupted {
+		r.summary.Interrupted = true
+		r.publish()
+	}
+	r.out.Interrupted = r.summary.Interrupted
+}
+
+// settle publishes the summary, republishes it after late cancellation or
+// output failure, delivers it, and returns the terminal outcome.
+func (r *batchRun[S]) settle(execErr error) (Result, error) {
+	r.finalize()
+	if !r.out.FinalizationFailed && r.o.Events.Finalized != nil {
+		r.o.Events.Finalized(r.summary)
 	}
 	// Progress output may fail or observe a signal after publication.
-	lateCancel := ctx.Err() != nil && !summary.Interrupted
-	lateOutput := outputErr() != nil && summary.OutputError == ""
+	lateCancel := r.ctx.Err() != nil && !r.summary.Interrupted
+	lateOutput := r.outputErr() != nil && r.summary.OutputError == ""
 	if lateCancel || lateOutput {
-		summary.Interrupted = summary.Interrupted || lateCancel
+		r.summary.Interrupted = r.summary.Interrupted || lateCancel
 		if lateOutput {
-			summary.OutputError = "output_failed"
+			r.summary.OutputError = "output_failed"
 		}
-		finalize()
+		r.finalize()
 	}
-	if out.FinalizationFailed {
-		out.Failed = true
-		return out, errors.Join(finishErr, firstReportErr, execErr)
+	if r.out.FinalizationFailed {
+		r.out.Failed = true
+		return r.out, errors.Join(r.finishErr, r.firstReportErr, execErr)
 	}
-	if o.Events.Deliver != nil {
-		if err := o.Events.Deliver(summary); err != nil {
-			summary.Interrupted = summary.Interrupted || ctx.Err() != nil
-			summary.OutputError = "output_failed"
-			finalize()
-			out.Failed = true
-			return out, err
+	if r.o.Events.Deliver != nil {
+		if err := r.o.Events.Deliver(r.summary); err != nil {
+			r.summary.Interrupted = r.summary.Interrupted || r.ctx.Err() != nil
+			r.summary.OutputError = "output_failed"
+			r.finalize()
+			r.out.Failed = true
+			return r.out, err
 		}
 	}
-	if ctx.Err() != nil && !summary.Interrupted {
-		summary.Interrupted = true
-		finalize()
+	if r.ctx.Err() != nil && !r.summary.Interrupted {
+		r.summary.Interrupted = true
+		r.finalize()
 	}
-	out.Failed = out.FinalizationFailed || out.Interrupted || firstReportErr != nil || execErr != nil
-	return out, errors.Join(firstReportErr, execErr)
+	r.out.Failed = r.out.FinalizationFailed || r.out.Interrupted || r.firstReportErr != nil || execErr != nil
+	return r.out, errors.Join(r.firstReportErr, execErr)
 }

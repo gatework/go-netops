@@ -23,10 +23,13 @@ var patterns sync.Map
 // expression, which is a programming error in the declaration.
 func Pattern(expr string) *regexp.Regexp {
 	if v, ok := patterns.Load(expr); ok {
-		return v.(*regexp.Regexp)
+		if re, ok := v.(*regexp.Regexp); ok {
+			return re
+		}
 	}
 	v, _ := patterns.LoadOrStore(expr, regexp.MustCompile(expr))
-	return v.(*regexp.Regexp)
+	re, _ := v.(*regexp.Regexp) // the cache stores only *regexp.Regexp
+	return re
 }
 
 // Line is one line of output with its 1-based number.

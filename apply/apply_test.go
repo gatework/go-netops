@@ -50,16 +50,16 @@ type journal struct {
 	final    *apply.State
 }
 
-type committedErr struct{}
+type committedError struct{}
 
-func (committedErr) Error() string   { return "published but not durable" }
-func (committedErr) Committed() bool { return true }
+func (committedError) Error() string   { return "published but not durable" }
+func (committedError) Committed() bool { return true }
 
 func (j *journal) WriteExecution(_ context.Context, s apply.State) error {
 	j.states = append(j.states, s)
 	if j.failOn == len(j.states) {
 		if j.visible {
-			return committedErr{}
+			return committedError{}
 		}
 		return errors.New("disk full")
 	}

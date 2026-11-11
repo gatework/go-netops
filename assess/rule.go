@@ -55,7 +55,7 @@ type Input[M any] struct {
 // the model and must be safe to call concurrently with other rules.
 type Rule[M any] interface {
 	Meta() RuleMeta
-	Evaluate(Input[M]) []Finding
+	Evaluate(in Input[M]) []Finding
 }
 
 type funcRule[M any] struct {
@@ -67,6 +67,8 @@ func (r funcRule[M]) Meta() RuleMeta                 { return r.meta }
 func (r funcRule[M]) Evaluate(in Input[M]) []Finding { return r.eval(in) }
 
 // NewRule adapts a function into a Rule.
+//
+//nolint:iface // catalogs hold rules only through the Rule interface; funcRule is an implementation detail
 func NewRule[M any](meta RuleMeta, eval func(Input[M]) []Finding) Rule[M] {
 	return funcRule[M]{meta: meta, eval: eval}
 }

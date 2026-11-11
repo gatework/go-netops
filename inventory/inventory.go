@@ -21,11 +21,12 @@ import (
 	"time"
 	"unicode"
 
+	"go.yaml.in/yaml/v3"
+
 	"github.com/gatework/go-net-connector/fleet"
 	ncinventory "github.com/gatework/go-net-connector/inventory"
 	"github.com/gatework/go-net-connector/netdisco"
 	"github.com/gatework/go-net-connector/vendors/dialect"
-	"go.yaml.in/yaml/v3"
 )
 
 // ErrInvalid reports an invalid inventory configuration.
@@ -123,6 +124,24 @@ func invalid(field string) error { return fmt.Errorf("%w: %s", ErrInvalid, field
 // accept unsafely.
 func (c Config) Validate() error {
 	n := c.Netdisco
+	for _, check := range []func() error{n.validateSource, n.validateURL, n.validateDatabase, n.validateQueryParams} {
+		if err := check(); err != nil {
+			return err
+		}
+	}
+	if _, err := c.Limits(); err != nil {
+		return err
+	}
+	for _, r := range c.Inventory.DeviceRules {
+		if r.Vendor == "" && r.Connector == "" {
+			return invalid("inventory.device_rules")
+		}
+	}
+	return nil
+}
+
+// validateSource checks the source, cache mode and local paths.
+func (n Netdisco) validateSource() error {
 	if !slices.Contains([]string{"", "http", "postgres"}, n.Source) {
 		return invalid("netdisco.source")
 	}
@@ -135,16 +154,28 @@ func (c Config) Validate() error {
 	if strings.ContainsRune(n.CacheDirectory, 0) || strings.ContainsRune(n.DBSSLRootCert, 0) {
 		return invalid("netdisco paths")
 	}
-	if n.URL != "" {
-		u, err := url.Parse(n.URL)
-		if err != nil || u.Host == "" || !slices.Contains([]string{"http", "https"}, u.Scheme) || u.User != nil ||
-			u.RawQuery != "" || u.Fragment != "" || strings.IndexFunc(n.URL, unicode.IsControl) >= 0 {
-			return invalid("netdisco.url")
-		}
-		if !n.AllowInsecureHTTP && u.Scheme != "https" {
-			return invalid("netdisco.url requires https")
-		}
+	return nil
+}
+
+// validateURL requires an absolute http(s) URL without credentials, query or
+// fragment, and https unless insecure HTTP was allowed explicitly.
+func (n Netdisco) validateURL() error {
+	if n.URL == "" {
+		return nil
 	}
+	u, err := url.Parse(n.URL)
+	if err != nil || u.Host == "" || !slices.Contains([]string{"http", "https"}, u.Scheme) || u.User != nil ||
+		u.RawQuery != "" || u.Fragment != "" || strings.IndexFunc(n.URL, unicode.IsControl) >= 0 {
+		return invalid("netdisco.url")
+	}
+	if !n.AllowInsecureHTTP && u.Scheme != "https" {
+		return invalid("netdisco.url requires https")
+	}
+	return nil
+}
+
+// validateDatabase checks the Postgres query and connection settings.
+func (n Netdisco) validateDatabase() error {
 	if n.Source == "postgres" && (strings.TrimSpace(n.Query) == "" || strings.ContainsRune(n.Query, 0)) {
 		return invalid("netdisco.query")
 	}
@@ -157,6 +188,11 @@ func (c Config) Validate() error {
 	if !slices.Contains([]string{"", "disable", "allow", "prefer", "require", "verify-ca", "verify-full"}, n.DBSSLMode) {
 		return invalid("netdisco.db_sslmode")
 	}
+	return nil
+}
+
+// validateQueryParams allows only scalar query parameters without NUL.
+func (n Netdisco) validateQueryParams() error {
 	for _, v := range n.QueryParams {
 		switch v := v.(type) {
 		case string:
@@ -166,14 +202,6 @@ func (c Config) Validate() error {
 		case nil, bool, int, float64:
 		default:
 			return invalid("netdisco.query_params")
-		}
-	}
-	if _, err := c.Limits(); err != nil {
-		return err
-	}
-	for _, r := range c.Inventory.DeviceRules {
-		if r.Vendor == "" && r.Connector == "" {
-			return invalid("inventory.device_rules")
 		}
 	}
 	return nil

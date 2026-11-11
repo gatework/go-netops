@@ -1,4 +1,4 @@
-# go-netops import boundaries, enforced by `go run ./cmd/archcheck`.
+# go-netops import boundaries (STANDARD.md ARC-1), enforced by archcheck in `make check`.
 declared:
   - .
   - ./evidence
@@ -12,8 +12,6 @@ declared:
   - ./store
   - ./inventory
   - ./bootstrap
-  - ./archcheck
-  - ./cmd/archcheck
 
 rules:
   - name: go-netops never imports a consumer module
@@ -64,7 +62,3 @@ rules:
   - name: inventory is connector configuration only
     packages: [./inventory]
     deny: [./...]
-
-  - name: the archcheck command uses only its package
-    packages: [./cmd/archcheck]
-    only_local: [./archcheck]

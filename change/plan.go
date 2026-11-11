@@ -80,14 +80,28 @@ func safeLines(lines []string) bool {
 	return true
 }
 
-func (p *Plan[M]) Target() Target              { return p.target }
+// Target returns the device the plan is bound to.
+func (p *Plan[M]) Target() Target { return p.target }
+
+// ExpectedFingerprint returns the configuration fingerprint the plan was made against.
 func (p *Plan[M]) ExpectedFingerprint() string { return p.expected }
-func (p *Plan[M]) Change() Change[M]           { return p.change }
-func (p *Plan[M]) Kind() Kind                  { return p.change.Kind() }
-func (p *Plan[M]) Commands() []string          { return slices.Clone(p.script.Commands) }
-func (p *Plan[M]) Rollback() []string          { return slices.Clone(p.script.Rollback) }
-func (p *Plan[M]) String() string              { return fmt.Sprintf("Plan{%s %s}", p.change.Kind(), p.target.Host) }
-func (p *Plan[M]) GoString() string            { return p.String() }
+
+// Change returns the planned change.
+func (p *Plan[M]) Change() Change[M] { return p.change }
+
+// Kind returns the kind of the planned change.
+func (p *Plan[M]) Kind() Kind { return p.change.Kind() }
+
+// Commands returns a copy of the rendered commands.
+func (p *Plan[M]) Commands() []string { return slices.Clone(p.script.Commands) }
+
+// Rollback returns a copy of the rendered rollback commands.
+func (p *Plan[M]) Rollback() []string { return slices.Clone(p.script.Rollback) }
+
+func (p *Plan[M]) String() string { return fmt.Sprintf("Plan{%s %s}", p.change.Kind(), p.target.Host) }
+
+// GoString formats only the kind and target, never commands.
+func (p *Plan[M]) GoString() string { return p.String() }
 
 // CheckBefore requires the live configuration to be exactly the one planned
 // against, and the change to still be eligible.

@@ -144,7 +144,7 @@ func (s *Severity) UnmarshalYAML(node *yaml.Node) error {
 // MarshalYAML encodes a severity name.
 func (s Severity) MarshalYAML() (any, error) {
 	if s == SeverityUnset {
-		return nil, nil
+		return nil, nil //nolint:nilnil // an unset severity encodes as YAML null
 	}
 	return s.String(), nil
 }
