@@ -27,4 +27,4 @@ make check   # 提交前必须通过
 make fuzz    # 修改 evidence 规范化时运行
 ```
 
-依赖使用正式模块版本（connector v0.6.0、expect v0.5.0），不使用 workspace 或持久化 replace。发布 tag 属于对外操作，需明确授权。
+依赖使用正式模块版本（net-connector v0.9.0、expect v0.6.0），不使用 workspace 或持久化 replace。发布 tag 属于对外操作，需明确授权。

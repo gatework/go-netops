@@ -4,7 +4,7 @@
 // go-vxlan and go-wireless read the same keys; this package is the single
 // typed decoder and validator for them. Layering (file, environment, flags)
 // stays with each application, which typically merges layers with
-// go-net-connector's config.InventoryEnvironment and passes the result to
+// net-connector's config.InventoryEnvironment and passes the result to
 // Decode. Credentials are supplied explicitly and never read here.
 package inventory
 
@@ -23,10 +23,10 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/gatework/go-net-connector/fleet"
-	ncinventory "github.com/gatework/go-net-connector/inventory"
-	"github.com/gatework/go-net-connector/netdisco"
-	"github.com/gatework/go-net-connector/vendors/dialect"
+	"github.com/gatework/net-connector/fleet"
+	ncinventory "github.com/gatework/net-connector/inventory"
+	"github.com/gatework/net-connector/netdisco"
+	ncplatform "github.com/gatework/net-connector/platform"
 )
 
 // ErrInvalid reports an invalid inventory configuration.
@@ -62,26 +62,26 @@ type Netdisco struct {
 // DeviceRule maps inventory rows to a connector platform.
 type DeviceRule struct {
 	Vendor      string  `yaml:"vendor"`
-	Connector   string  `yaml:"connector"`
+	Platform    string  `yaml:"platform"`
 	OS          *string `yaml:"os"`
 	ModelPrefix *string `yaml:"model_prefix"`
 }
 
 // Selection filters inventory rows.
 type Selection struct {
-	IncludeHosts    []string          `yaml:"include_hosts"`
-	ExcludeHosts    []string          `yaml:"exclude_hosts"`
-	IncludeNames    []string          `yaml:"include_names"`
-	ExcludeNames    []string          `yaml:"exclude_names"`
-	IncludeVendors  []string          `yaml:"include_vendors"`
-	ExcludeVendors  []string          `yaml:"exclude_vendors"`
-	IncludeModels   []string          `yaml:"include_models"`
-	ExcludeModels   []string          `yaml:"exclude_models"`
-	NameMatch       string            `yaml:"name_match"`
-	ModelMatch      string            `yaml:"model_match"`
-	VendorOverrides map[string]string `yaml:"vendor_overrides"`
-	HostOverrides   map[string]string `yaml:"host_overrides"`
-	DeviceRules     []DeviceRule      `yaml:"device_rules"`
+	IncludeHosts      []string          `yaml:"include_hosts"`
+	ExcludeHosts      []string          `yaml:"exclude_hosts"`
+	IncludeNames      []string          `yaml:"include_names"`
+	ExcludeNames      []string          `yaml:"exclude_names"`
+	IncludePlatforms  []string          `yaml:"include_platforms"`
+	ExcludePlatforms  []string          `yaml:"exclude_platforms"`
+	IncludeModels     []string          `yaml:"include_models"`
+	ExcludeModels     []string          `yaml:"exclude_models"`
+	NameMatch         string            `yaml:"name_match"`
+	ModelMatch        string            `yaml:"model_match"`
+	PlatformOverrides map[string]string `yaml:"platform_overrides"`
+	HostOverrides     map[string]string `yaml:"host_overrides"`
+	DeviceRules       []DeviceRule      `yaml:"device_rules"`
 }
 
 // Config is the typed form of the netdisco and inventory sections.
@@ -133,7 +133,7 @@ func (c Config) Validate() error {
 		return err
 	}
 	for _, r := range c.Inventory.DeviceRules {
-		if r.Vendor == "" && r.Connector == "" {
+		if r.Vendor == "" && r.Platform == "" {
 			return invalid("inventory.device_rules")
 		}
 	}
@@ -262,21 +262,21 @@ func (s Selection) RuleOptions() fleet.RuleOptions {
 		Selection: ncinventory.SelectionOptions{
 			IncludeHosts: s.IncludeHosts, ExcludeHosts: s.ExcludeHosts,
 			IncludeNames: s.IncludeNames, ExcludeNames: s.ExcludeNames,
-			IncludeVendors: s.IncludeVendors, ExcludeVendors: s.ExcludeVendors,
+			IncludePlatforms: s.IncludePlatforms, ExcludePlatforms: s.ExcludePlatforms,
 			IncludeModels: s.IncludeModels, ExcludeModels: s.ExcludeModels,
 			NameMatch: s.NameMatch, ModelMatch: s.ModelMatch,
 		},
-		VendorOverrides: s.VendorOverrides,
-		HostOverrides:   s.HostOverrides,
+		PlatformOverrides: s.PlatformOverrides,
+		HostOverrides:     s.HostOverrides,
 	}
 	for _, r := range s.DeviceRules {
-		o.Mappings = append(o.Mappings, fleet.Mapping{Vendor: r.Vendor, Connector: r.Connector, OS: r.OS, ModelPrefix: r.ModelPrefix})
+		o.Mappings = append(o.Mappings, fleet.Mapping{Vendor: r.Vendor, Platform: r.Platform, OS: r.OS, ModelPrefix: r.ModelPrefix})
 	}
 	return o
 }
 
 // Rules builds the fleet resolver against an explicit platform registry.
-func (c Config) Rules(registry dialect.Registry) (*fleet.Rules, error) {
+func (c Config) Rules(registry ncplatform.Registry) (*fleet.Rules, error) {
 	return fleet.NewRules(c.Inventory.RuleOptions(), registry)
 }
 
@@ -345,14 +345,14 @@ func Devices(rules *fleet.Rules, rows []ncinventory.Device, platform string) []D
 	var out []Device
 	for _, row := range rows {
 		r := rules.Record(row)
-		if r.Issue != "" || r.Vendor != platform {
+		if r.Issue != "" || r.Platform != platform {
 			continue
 		}
 		name := r.Name
 		if name == "" {
 			name = r.Host
 		}
-		out = append(out, Device{Host: r.Host, Name: name, Model: r.Model, Platform: r.Vendor})
+		out = append(out, Device{Host: r.Host, Name: name, Model: r.Model, Platform: r.Platform})
 	}
 	return out
 }

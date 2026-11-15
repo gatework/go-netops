@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/gatework/go-expect"
-	"github.com/gatework/go-net-connector/connector"
 	"github.com/gatework/go-netops/session"
+	"github.com/gatework/net-connector/connector"
 )
 
 type coded struct{}
