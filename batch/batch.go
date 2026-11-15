@@ -17,8 +17,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gatework/go-net-connector/parallel"
 	"github.com/gatework/go-netops/evidence"
+	"github.com/gatework/net-connector/parallel"
 )
 
 // SchemaVersion is the version of the Summary document.

@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gatework/go-net-connector/storage"
 	"github.com/gatework/go-netops/apply"
 	"github.com/gatework/go-netops/batch"
 	"github.com/gatework/go-netops/store"
+	"github.com/gatework/net-connector/storage"
 )
 
 func newStore(t *testing.T, write store.WriteFunc) *store.Store {

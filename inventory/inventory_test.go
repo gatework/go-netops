@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	ncinventory "github.com/gatework/go-net-connector/inventory"
-	"github.com/gatework/go-net-connector/netdisco"
-	"github.com/gatework/go-net-connector/vendors"
 	"github.com/gatework/go-netops/inventory"
+	ncinventory "github.com/gatework/net-connector/inventory"
+	"github.com/gatework/net-connector/netdisco"
+	"github.com/gatework/net-connector/vendors"
 )
 
 func TestDecodeAppliesDefaults(t *testing.T) {
@@ -33,7 +33,7 @@ func TestDecodeAppliesDefaults(t *testing.T) {
 func TestDecodeFromMergedLayers(t *testing.T) {
 	c, err := inventory.Decode(map[string]any{
 		"netdisco":  map[string]any{"source": "postgres", "query": "select 1", "db_port": 5433, "cache_enabled": false},
-		"inventory": map[string]any{"include_vendors": []any{"cisco"}, "device_rules": []any{map[string]any{"vendor": "cisco", "connector": "cisco_nxos", "os": "nx-os"}}},
+		"inventory": map[string]any{"include_platforms": []any{"cisco"}, "device_rules": []any{map[string]any{"vendor": "cisco", "platform": "cisco_nxos", "os": "nx-os"}}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -42,24 +42,28 @@ func TestDecodeFromMergedLayers(t *testing.T) {
 		t.Fatal("cache_enabled: false ignored")
 	}
 	o := c.Inventory.RuleOptions()
-	if len(o.Mappings) != 1 || *o.Mappings[0].OS != "nx-os" || o.Selection.IncludeVendors[0] != "cisco" {
+	if len(o.Mappings) != 1 || *o.Mappings[0].OS != "nx-os" || o.Selection.IncludePlatforms[0] != "cisco" {
 		t.Fatalf("%+v", o)
 	}
 }
 
 func TestValidateRejects(t *testing.T) {
 	for name, doc := range map[string]string{
-		"source":       "netdisco: {source: ldap}",
-		"plain http":   "netdisco: {url: 'http://nd.example'}",
-		"url creds":    "netdisco: {url: 'https://u:p@nd.example'}",
-		"cache only":   "netdisco: {cache_mode: only, cache_enabled: false}",
-		"query":        "netdisco: {source: postgres}",
-		"port":         "netdisco: {source: postgres, query: q, db_port: 70000}",
-		"sslmode":      "netdisco: {db_sslmode: maybe}",
-		"timeout":      "netdisco: {inventory_timeout: 0}",
-		"unknown key":  "netdisco: {bogus: 1}",
-		"empty rule":   "inventory: {device_rules: [{os: x}]}",
-		"query params": "netdisco: {query_params: [{a: 1}]}",
+		"source":           "netdisco: {source: ldap}",
+		"plain http":       "netdisco: {url: 'http://nd.example'}",
+		"url creds":        "netdisco: {url: 'https://u:p@nd.example'}",
+		"cache only":       "netdisco: {cache_mode: only, cache_enabled: false}",
+		"query":            "netdisco: {source: postgres}",
+		"port":             "netdisco: {source: postgres, query: q, db_port: 70000}",
+		"sslmode":          "netdisco: {db_sslmode: maybe}",
+		"timeout":          "netdisco: {inventory_timeout: 0}",
+		"unknown key":      "netdisco: {bogus: 1}",
+		"empty rule":       "inventory: {device_rules: [{os: x}]}",
+		"old include key":  "inventory: {include_vendors: [cisco]}",
+		"old exclude key":  "inventory: {exclude_vendors: [cisco]}",
+		"old override key": "inventory: {vendor_overrides: {cisco: cisco_nxos}}",
+		"old mapping key":  "inventory: {device_rules: [{vendor: cisco, connector: cisco_nxos}]}",
+		"query params":     "netdisco: {query_params: [{a: 1}]}",
 	} {
 		if _, err := inventory.DecodeYAML([]byte(doc)); !errors.Is(err, inventory.ErrInvalid) {
 			t.Errorf("%s: %v", name, err)
@@ -89,7 +93,7 @@ func TestPostgresDSNQuotes(t *testing.T) {
 }
 
 func TestDevicesResolvesPlatform(t *testing.T) {
-	c, _ := inventory.DecodeYAML([]byte("inventory: {device_rules: [{vendor: cisco, connector: cisco_nxos}]}"))
+	c, _ := inventory.DecodeYAML([]byte("inventory: {device_rules: [{vendor: cisco, platform: cisco_nxos}]}"))
 	rules, err := c.Rules(vendors.NewBuiltinRegistry())
 	if err != nil {
 		t.Fatal(err)

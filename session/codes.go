@@ -11,7 +11,7 @@ import (
 	"slices"
 
 	"github.com/gatework/go-expect"
-	"github.com/gatework/go-net-connector/connector"
+	"github.com/gatework/net-connector/connector"
 )
 
 // Stable codes. Connector errors otherwise keep their own Code.

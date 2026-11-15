@@ -1,7 +1,7 @@
 // Package store publishes private, durable report artifacts.
 //
 // Every artifact lives in one batch directory (mode 0700) and is written with
-// go-net-connector's atomic, fsynced storage.Write (files 0600). A failed
+// net-connector's atomic, fsynced storage.Write (files 0600). A failed
 // publication reports whether the new content became visible anyway, which
 // the apply state machine needs to decide between "failed" and "uncertain".
 package store
@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gatework/go-net-connector/storage"
+	"github.com/gatework/net-connector/storage"
 )
 
 // WriteFunc writes one file atomically. storage.Write is the default.

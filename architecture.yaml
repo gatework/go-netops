@@ -22,9 +22,9 @@ rules:
   - name: domain packages stay free of transport and I/O
     packages: [., ./evidence, ./textscan, ./assess, ./drift, ./change, ./apply, ./batch]
     deny: [os, os/exec, io/fs, net, net/http, database/sql, path/filepath, syscall,
-           github.com/gatework/go-net-connector/..., github.com/gatework/go-expect/...]
+           github.com/gatework/net-connector/..., github.com/gatework/go-expect/...]
     # batch uses only the connector's pure bounded worker pool.
-    allow: [github.com/gatework/go-net-connector/parallel]
+    allow: [github.com/gatework/net-connector/parallel]
 
   - name: root documents the module only
     packages: [.]
