@@ -3,8 +3,8 @@ github.com/creack/pty v1.1.24/go.mod h1:08sCNb52WyoAwi2QDyzUCTgcvVFhUzewun7wtTfv
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/gatework/go-expect v0.6.2 h1:bCWu3jGKdmdu5EZXOAXkdVacBovJzswML4XUQIUqaM0=
 github.com/gatework/go-expect v0.6.2/go.mod h1:e5Q30fvoQdKUT4tn+peHByNjiEBMykwjS/OWCk1hPG0=
-github.com/gatework/net-connector v0.9.2 h1:bDAijzt83RBrhI4iUgw0Lxal8t01julmRLLmkFMw9ew=
-github.com/gatework/net-connector v0.9.2/go.mod h1:Np2E23wIS9kNQW6C/6h2vpUNMmXAMjrpmKvvyqMH154=
+github.com/gatework/net-connector v0.9.3 h1:GV423vNfDnosGNCpSRMANtFVMp4QF5UDPRyQkHoGh9w=
+github.com/gatework/net-connector v0.9.3/go.mod h1:6yz7ZTxt/dPzn5wehUikg8NU+hzKRP8w3a34xbLukTU=
 github.com/jackc/pgpassfile v1.0.0 h1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsIM=
 github.com/jackc/pgpassfile v1.0.0/go.mod h1:CEx0iS5ambNFdcRtxPj5JhEz+xB6uRky5eyVu/W2HEg=
 github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 h1:iCEnooe7UlwOQYpKFhBabPMi4aNAfoODPEFNiAnClxo=

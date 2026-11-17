@@ -2,7 +2,7 @@
 
 面向网络运维工具的领域内核：类型化证据、规则化风险评估、配置偏离检测、受控变更执行。厂商无关，供 go-vxlan、go-wireless 等领域模块复用。
 
-当前版本 [v0.4.1](docs/releases/v0.4.1.md)，采用正式 net-connector v0.9.2 与 go-expect v0.6.2，最低 Go 版本保持 1.26.0。
+当前版本 [v0.4.2](docs/releases/v0.4.2.md)，采用正式 net-connector v0.9.3 与 go-expect v0.6.2，最低 Go 版本保持 1.26.0。
 
 ```
 采集证据 → 类型化模型 → 规则评估(assess) → 偏离(drift) → 纠正计划(change) → 受控执行(apply) → 持久化(store)
